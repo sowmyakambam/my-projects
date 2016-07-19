@@ -1,0 +1,1 @@
+In this project, Multiple files can be sent to email id
