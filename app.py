@@ -10,7 +10,13 @@ from email import *
 from email.mime import *
 
 import tarfile
+import tempfile
+import zipfile
 
+from email import encoders
+from email.message import Message
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory
 from werkzeug import secure_filename
@@ -29,7 +35,7 @@ msg.attach(body)
 # This is the path to the upload directory
 app.config['UPLOAD_FOLDER'] = 'E://uploads/'
 # These are the extension that we are accepting to be uploaded
-app.config['ALLOWED_EXTENSIONS'] = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+app.config['ALLOWED_EXTENSIONS'] = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif','zip','tar'])
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -58,6 +64,7 @@ def upload():
     # Get the name of the uploaded files
     uploaded_files = request.files.getlist('file[]')
     filenames = []
+    zf = tempfile.TemporaryFile(prefix='mail', suffix='.zip')
     for file in uploaded_files:
         # Check if the file is one of the allowed types/extensions
         if file and allowed_file(file.filename):
@@ -72,35 +79,47 @@ def upload():
             f=os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
             print "filename"+f
-            # Save the filename into a list, we'll use it later
+            # Save the filename into a list
             filenames.append(filename)
 
             print "After appending files"
 
-            with tarfile.open("E:/eeg_files.tar", "a") as tarf:
-                filename3="E:/eeg_files.tar"
-                ep_dir = tarfile.TarInfo("uploadedfiles")
+            # with tarfile.open("eeg_files.tar", "a") as tarf:
+            #     filename3="eeg_files.tar"
+            #     ep_dir = tarfile.TarInfo("uploadedfiles")
             
-                ep_dir.type = tarfile.DIRTYPE
-                ep_dir.mode = 0o777
-                tarf.addfile(ep_dir)
+            #     ep_dir.type = tarfile.DIRTYPE
+            #     ep_dir.mode = 0o777
+            #     tarf.addfile(ep_dir)
 
-                tarf.add(f, arcname="Uploadedfiles1/" + os.path.basename(f), recursive=True)
+            #     tarf.add(f)
 
             
-            fp=open(f,'rb')
+            zip = zipfile.ZipFile(zf, 'a')
+            zip.write(f)
+            print "zip file is" +f
+            zip.close()
+            zf.seek(0)
+
+
+    att = MIMEBase('application', 'zip')
+    att.set_payload(zf.read())
+    encoders.encode_base64(att)
+    att.add_header('Content-Disposition', 'attachment', filename="mail.zip")
+
+    fp=open(f,'rb')
       
 
-            print "file reading"
+    print "file reading"
 
-            att = email.mime.application.MIMEApplication(fp.read(),_subtype=subtype)
-            fp.close()
-            att.add_header('Content-Disposition','attachment',filename=filename)
-            print "close file"
+            # att = email.mime.application.MIMEApplication(fp.read(),_subtype=subtype)
+            # fp.close()
+            # att.add_header('Content-Disposition','attachment',filename=filename)
+    print "close file"
                 
-            msg.attach(att)
+    msg.attach(att)
 
-            print "attached attribute"
+    print "attached attribute"
     print "came out of for"
 
     s = smtplib.SMTP('smtp.gmail.com')
